@@ -1,8 +1,8 @@
-# mcp-script-runner
+# MCP Script Runner
 
 ## prerequisites
 
-- python: e.g. `mise install python@3.13 && mise use python@3.31 -g`
+- python: e.g. `mise install python@3.13 && mise use python@3.13 -g`
 - uv: e.g. `brew install uv`
 
 ## configure
