@@ -53,9 +53,7 @@ def extract_description(script_path):
             lines = f.readlines()
             if len(lines) < 2:
                 return ""
-            line = lines[1].strip()
-            if line.startswith('#'):
-                return line.lstrip('#').strip()
+            return lines[1].strip()
     except Exception:
         pass
     return ""
