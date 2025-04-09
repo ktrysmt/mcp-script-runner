@@ -19,15 +19,17 @@ async def exec_command(command: str) -> str:
             command: "script_file_name"
     """
 
+    full_path = os.path.join(cmd_dir, command)
+
     # permissionがない場合は付与する
-    if not os.access(cmd_dir + command, os.X_OK):
+    if not os.access(full_path, os.X_OK):
         try:
-            os.chmod(cmd_dir + command, 0o755)
+            os.chmod(full_path, 0o755)
         except OSError as e:
             return json.dumps({"error": f"Failed to set execute permission: {e}"})
 
     result = subprocess.run(
-        f"{cmd_dir}{command}",
+        full_path,
         shell=True,
         capture_output=True,
         text=True
@@ -42,23 +44,42 @@ async def exec_command(command: str) -> str:
     )
 
 
-async def list_commands() -> str:
-    """list all command names"""
-    commands = []
-    if not os.path.isdir(cmd_dir):
-        return json.dumps({"error": f"Command directory '{cmd_dir}' not found."})
+def extract_description(script_path):
+    """
+    指定スクリプトの2行目コメントからdescriptionを抽出
+    """
     try:
-        for file in os.listdir(cmd_dir):
-            if os.path.isfile(os.path.join(cmd_dir, file)):
-                commands.append(file)
-    except Exception as e:
-        return json.dumps({"error": f"Error listing commands: {e}"})
-    return json.dumps(commands, ensure_ascii=False)
+        with open(script_path, 'r', encoding='utf-8') as f:
+            lines = f.readlines()
+            if len(lines) < 2:
+                return ""
+            line = lines[1].strip()
+            if line.startswith('#'):
+                return line.lstrip('#').strip()
+    except Exception:
+        pass
+    return ""
 
 
 def main():
-    mcp.tool()(exec_command)
-    mcp.tool()(list_commands)
+    # commands配下のすべてのファイルをツール登録
+    if os.path.isdir(cmd_dir):
+        for filename in os.listdir(cmd_dir):
+            script_path = os.path.join(cmd_dir, filename)
+            if not os.path.isfile(script_path):
+                continue
+
+            description = extract_description(script_path)
+
+            # 各shell script実行用ツールをdescription付きで登録
+            def gen_tool(cmd_name):
+                async def run_shell():
+                    return await exec_command(cmd_name)
+                return run_shell
+
+            mcp.tool(description=description, name=filename)(
+                gen_tool(filename))
+
     mcp.run(transport='stdio')
 
 
